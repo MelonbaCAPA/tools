@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiny Planet Maker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #05080f;
+    --surface: #0d1320;
+    --surface2: #111a2e;
+    --border: #1e2f50;
+    --accent: #4a9eff;
+    --accent2: #a259ff;
+    --glow: rgba(74, 158, 255, 0.25);
+    --text: #e8f0ff;
+    --muted: #6b82a8;
+    --success: #3effa8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Star field */
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 40px 20px 20px;
+  }
+
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    background: linear-gradient(135deg, #4a9eff 0%, #a259ff 60%, #ff6b9d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 30px rgba(74,158,255,0.4));
+  }
+
+  .tagline {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  .main {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    padding: 20px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* DROP ZONE */
+  .drop-zone {
+    width: 100%;
+    max-width: 600px;
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 50px 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(74,158,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--surface2);
+    box-shadow: 0 0 40px var(--glow);
+  }
+
+  .drop-icon {
+    font-size: 3rem;
+    filter: drop-shadow(0 0 12px rgba(74,158,255,0.5));
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .drop-zone h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .drop-zone p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .btn-upload {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 20px rgba(74,158,255,0.3);
+  }
+
+  .btn-upload:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(74,158,255,0.4);
+  }
+
+  #file-input { display: none; }
+
+  /* CONTROLS */
+  .controls {
+    display: none;
+    width: 100%;
+    max-width: 700px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .controls.visible { display: flex; }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .toggle-row {
+    display: flex;
+    background: var(--surface2);
+    border-radius: 30px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .toggle-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .toggle-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    border-radius: 30px;
+  }
+
+  .slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 140px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(74,158,255,0.5);
+  }
+
+  .slider-val {
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 40px;
+  }
+
+  .btn-process {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 12px 32px;
+    border-radius: 30px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 20px rgba(74,158,255,0.3);
+  }
+
+  .btn-process:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(74,158,255,0.5);
+  }
+
+  .btn-process:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* OUTPUT */
+  .output-section {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  .output-section.visible { display: flex; }
+
+  .canvas-wrap {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(74,158,255,0.2), 0 20px 60px rgba(0,0,0,0.5);
+    /* Fit within the viewport — never taller than 60vh or wider than 90vw */
+    width: min(90vw, 60vh);
+    height: min(90vw, 60vh);
+  }
+
+  #output-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+  }
+
+  /* Progress overlay */
+  .progress-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,8,15,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    border-radius: 20px;
+  }
+
+  .progress-overlay.active { display: flex; }
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-text {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  .output-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 30px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.04em;
+    border: none;
+  }
+
+  .btn-download {
+    background: var(--success);
+    color: #05080f;
+  }
+
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(62,255,168,0.35);
+  }
+
+  .btn-reset {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border) !important;
+  }
+
+  .btn-reset:hover {
+    color: var(--text);
+    border-color: var(--muted) !important;
+  }
+
+  /* Hidden canvases for processing */
+  #source-canvas { display: none; }
+
+  /* Info cards */
+  .info-strip {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+  }
+
+  .info-card .icon { font-size: 1.3rem; margin-bottom: 6px; }
+  .info-card h3 { font-size: 0.8rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .info-card p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<canvas id="source-canvas"></canvas>
+
+<header>
+  <div class="logo">🪐 TINY PLANET</div>
+  <div class="tagline">Transform your photos into worlds</div>
+</header>
+
+<div class="main">
+
+  <!-- DROP ZONE -->
+  <div class="drop-zone" id="drop-zone">
+    <div class="drop-icon">🌍</div>
+    <h2>Drop your photo here</h2>
+    <p>Works best with panoramic or wide landscape photos.<br>Sky at top, ground at bottom.</p>
+    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Choose Photo</button>
+    <input type="file" id="file-input" accept="image/*">
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls" id="controls">
+    <div class="control-group">
+      <label>Planet Mode</label>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="mode-planet" onclick="setMode('planet')">🌍 Planet</button>
+        <button class="toggle-btn" id="mode-tunnel" onclick="setMode('tunnel')">🕳️ Tunnel</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Rotation</label>
+      <div class="slider-wrap">
+        <input type="range" id="rotation" min="0" max="360" value="0"
+               oninput="document.getElementById('rot-val').textContent = this.value + '°'">
+        <span class="slider-val" id="rot-val">0°</span>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Output Size</label>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="size-800" onclick="setSize(800)">800px</button>
+        <button class="toggle-btn" id="size-1200" onclick="setSize(1200)">1200px</button>
+        <button class="toggle-btn" id="size-2000" onclick="setSize(2000)">2000px</button>
+      </div>
+    </div>
+
+    <button class="btn-process" id="btn-process" onclick="processImage()">✨ Create Planet</button>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="output-section" id="output-section">
+    <div class="canvas-wrap">
+      <canvas id="output-canvas" width="600" height="600"></canvas>
+      <div class="progress-overlay" id="progress-overlay">
+        <div class="spinner"></div>
+        <div class="progress-text" id="progress-text">Warping space-time...</div>
+      </div>
+    </div>
+    <div class="output-actions">
+      <button class="btn-action btn-download" onclick="downloadResult()">⬇ Download PNG</button>
+      <button class="btn-action btn-reset" onclick="resetApp()">↺ New Photo</button>
+    </div>
+  </div>
+
+  <!-- INFO CARDS -->
+  <div class="info-strip" id="info-strip">
+    <div class="info-card">
+      <div class="icon">📸</div>
+      <h3>Best Photos</h3>
+      <p>Wide/panoramic shots with a clear horizon work best. Sky should be at the top.</p>
+    </div>
+    <div class="info-card">
+      <div class="icon">🔄</div>
+      <h3>Tunnel Mode</h3>
+      <p>Flips the effect — the sky becomes the inside of a swirling vortex.</p>
+    </div>
+    <div class="info-card">
+      <div class="icon">🔒</div>
+      <h3>100% Private</h3>
+      <p>Everything runs in your browser. No photos are uploaded anywhere.</p>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Made for students — runs entirely in your browser, no account needed.
+</footer>
+
+<script>
+  // ── STAR FIELD ──────────────────────────────────────────────
+  const starCanvas = document.getElementById('stars');
+  const starCtx = starCanvas.getContext('2d');
+  let stars = [];
+
+  function initStars() {
+    starCanvas.width = window.innerWidth;
+    starCanvas.height = window.innerHeight;
+    stars = [];
+    for (let i = 0; i < 180; i++) {
+      stars.push({
+        x: Math.random() * starCanvas.width,
+        y: Math.random() * starCanvas.height,
+        r: Math.random() * 1.5 + 0.2,
+        a: Math.random(),
+        speed: Math.random() * 0.003 + 0.001
+      });
+    }
+  }
+
+  function drawStars() {
+    starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+    stars.forEach(s => {
+      s.a += s.speed;
+      const alpha = (Math.sin(s.a) + 1) / 2 * 0.8 + 0.1;
+      starCtx.beginPath();
+      starCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      starCtx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+      starCtx.fill();
+    });
+    requestAnimationFrame(drawStars);
+  }
+
+  window.addEventListener('resize', initStars);
+  initStars();
+  drawStars();
+
+  // ── APP STATE ────────────────────────────────────────────────
+  let currentMode = 'planet';
+  let currentSize = 800;
+  let loadedImage = null;
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-planet').classList.toggle('active', mode === 'planet');
+    document.getElementById('mode-tunnel').classList.toggle('active', mode === 'tunnel');
+  }
+
+  function setSize(size) {
+    currentSize = size;
+    ['800', '1200', '2000'].forEach(s => {
+      document.getElementById('size-' + s).classList.toggle('active', parseInt(s) === size);
+    });
+  }
+
+  // ── DRAG & DROP ──────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) loadFile(fileInput.files[0]);
+  });
+
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+        // Draw to source canvas
+        const srcCanvas = document.getElementById('source-canvas');
+        const ctx = srcCanvas.getContext('2d');
+        // Cap source at 2000px wide for performance
+        const maxW = 2000;
+        const scale = Math.min(1, maxW / img.width);
+        srcCanvas.width = Math.floor(img.width * scale);
+        srcCanvas.height = Math.floor(img.height * scale);
+        ctx.drawImage(img, 0, 0, srcCanvas.width, srcCanvas.height);
+        showControls();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function showControls() {
+    document.getElementById('controls').classList.add('visible');
+    document.getElementById('info-strip').style.display = 'none';
+  }
+
+  // ── TINY PLANET TRANSFORM ────────────────────────────────────
+  function processImage() {
+    if (!loadedImage) return;
+
+    const btn = document.getElementById('btn-process');
+    btn.disabled = true;
+
+    const outputSection = document.getElementById('output-section');
+    outputSection.classList.add('visible');
+
+    const overlay = document.getElementById('progress-overlay');
+    const progressText = document.getElementById('progress-text');
+    overlay.classList.add('active');
+
+    const messages = [
+      'Bending light...',
+      'Warping space-time...',
+      'Curving the horizon...',
+      'Assembling your world...'
+    ];
+    let msgIdx = 0;
+    const msgInterval = setInterval(() => {
+      msgIdx = (msgIdx + 1) % messages.length;
+      progressText.textContent = messages[msgIdx];
+    }, 800);
+
+    // Defer to next frame so UI updates
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          render();
+        } finally {
+          clearInterval(msgInterval);
+          overlay.classList.remove('active');
+          btn.disabled = false;
+        }
+      }, 100);
+    });
+  }
+
+  function render() {
+    const srcCanvas = document.getElementById('source-canvas');
+    const outCanvas = document.getElementById('output-canvas');
+
+    const size = currentSize;
+    outCanvas.width = size;
+    outCanvas.height = size;
+
+    const outCtx = outCanvas.getContext('2d');
+    const srcCtx = srcCanvas.getContext('2d');
+
+    const srcW = srcCanvas.width;
+    const srcH = srcCanvas.height;
+
+    const rotation = parseInt(document.getElementById('rotation').value);
+    const flip = (currentMode === 'tunnel');
+
+    // Get source pixel data
+    const srcData = srcCtx.getImageData(0, 0, srcW, srcH);
+    const outData = outCtx.createImageData(size, size);
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const maxR = size / 2;
+    const TWO_PI = Math.PI * 2;
+    const rotRad = (rotation / 360) * TWO_PI;
+
+    for (let py = 0; py < size; py++) {
+      for (let px = 0; px < size; px++) {
+        const dx = px - cx;
+        const dy = py - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+
+        if (r > maxR) continue; // Outside circle = transparent
+
+        const normR = r / maxR;
+
+        // Angle: shift by rotation
+        let theta = Math.atan2(dy, dx) + rotRad;
+        // Normalize theta to [0, 1]
+        let srcXf = ((theta / TWO_PI) % 1 + 1) % 1;
+
+        // Map radius to vertical axis
+        // Planet: normR=0 (center) → bottom of image, normR=1 (edge) → top
+        // Tunnel: normR=0 (center) → top of image, normR=1 (edge) → bottom
+        let srcYf = flip ? normR : (1 - normR);
+
+        // Source pixel coords
+        let srcX = Math.floor(srcXf * srcW) % srcW;
+        let srcY = Math.min(Math.floor(srcYf * srcH), srcH - 1);
+        if (srcX < 0) srcX += srcW;
+
+        const si = (srcY * srcW + srcX) * 4;
+        const di = (py * size + px) * 4;
+
+        outData.data[di]     = srcData.data[si];
+        outData.data[di + 1] = srcData.data[si + 1];
+        outData.data[di + 2] = srcData.data[si + 2];
+        outData.data[di + 3] = 255;
+      }
+    }
+
+    outCtx.putImageData(outData, 0, 0);
+
+    // Draw circular mask (clean edges)
+    outCtx.globalCompositeOperation = 'destination-in';
+    outCtx.beginPath();
+    outCtx.arc(cx, cy, maxR, 0, TWO_PI);
+    outCtx.fillStyle = '#fff';
+    outCtx.fill();
+    outCtx.globalCompositeOperation = 'source-over';
+  }
+
+  // ── DOWNLOAD ─────────────────────────────────────────────────
+  function downloadResult() {
+    const canvas = document.getElementById('output-canvas');
+    const link = document.createElement('a');
+    link.download = 'tiny-planet.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  // ── RESET ────────────────────────────────────────────────────
+  function resetApp() {
+    loadedImage = null;
+    document.getElementById('controls').classList.remove('visible');
+    document.getElementById('output-section').classList.remove('visible');
+    document.getElementById('info-strip').style.display = '';
+    document.getElementById('file-input').value = '';
+    document.getElementById('rotation').value = 0;
+    document.getElementById('rot-val').textContent = '0°';
+    setMode('planet');
+    setSize(800);
+  }
+</script>
+</body>
+</html>

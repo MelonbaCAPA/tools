@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colour Analyser</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:     #f5f0e8;
+  --ink:    #1a1611;
+  --muted:  #8a8070;
+  --border: #d4cbbf;
+  --accent: #c8401a;
+  --surface: #fff;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px 80px;
+}
+
+/* Grain */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.7;
+}
+
+header {
+  position: relative; z-index: 1;
+  text-align: center;
+  margin-bottom: 44px;
+}
+
+header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+header h1 span { color: var(--accent); font-style: italic; }
+
+header p {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── DROP ZONE ── */
+.drop-zone {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 600px;
+  border: 2px dashed var(--border);
+  border-radius: 4px;
+  padding: 52px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--surface);
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(200,64,26,0.03);
+}
+
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+
+.drop-icon { font-size: 2.4rem; margin-bottom: 12px; display: block; }
+
+.drop-zone p { font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+.drop-zone strong { color: var(--ink); }
+
+/* ── CONTROLS ── */
+.controls {
+  display: none;
+  position: relative; z-index: 1;
+  width: 100%; max-width: 600px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px 24px;
+  margin-top: 16px;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.controls.visible { display: flex; }
+
+.controls label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.slider-row { display: flex; align-items: center; gap: 10px; }
+
+input[type=range] {
+  -webkit-appearance: none;
+  flex: 1; height: 3px;
+  background: var(--border);
+  border-radius: 2px; outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.slider-val { color: var(--accent); font-size: 0.85rem; font-weight: 500; min-width: 24px; }
+
+.btn-analyse {
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 12px 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.btn-analyse:hover { opacity: 0.88; transform: translateY(-1px); }
+.btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── RESULTS ── */
+.results {
+  display: none;
+  position: relative; z-index: 1;
+  width: 100%; max-width: 600px;
+  margin-top: 28px;
+  flex-direction: column;
+  gap: 0;
+  animation: fadeUp 0.4s ease;
+}
+
+.results.visible { display: flex; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.results-header h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.btn-export {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-export:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Palette strip */
+.palette-strip {
+  width: 100%;
+  height: 56px;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.strip-seg { height: 100%; transition: flex 0.4s ease; }
+
+/* Colour rows */
+.colour-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.colour-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 14px;
+  border-bottom: 1px solid var(--border);
+  animation: fadeUp 0.3s ease both;
+}
+
+.colour-row:last-child { border-bottom: none; }
+
+.swatch {
+  width: 36px; height: 36px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+
+.colour-info { display: flex; flex-direction: column; gap: 4px; }
+
+.colour-codes {
+  font-size: 0.78rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.colour-name {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-style: italic;
+  font-family: 'Fraunces', serif;
+}
+
+/* Bar */
+.bar-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 90px; }
+
+.bar-track {
+  width: 90px; height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+.pct-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* Spinner */
+.spinner-wrap {
+  display: none;
+  position: relative; z-index: 1;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.spinner-wrap.active { display: flex; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+canvas#src { display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="src"></canvas>
+
+<header>
+  <h1>Colour <span>Analyser</span></h1>
+  <p>Upload an image · extract dominant colours</p>
+</header>
+
+<!-- Drop zone -->
+<div class="drop-zone" id="drop-zone">
+  <input type="file" id="file-input" accept="image/*">
+  <span class="drop-icon">🎨</span>
+  <p><strong>Drop an image here</strong><br>or click to browse<br><br>
+  Works great with artworks, photographs, logos, and illustrations.</p>
+</div>
+
+<!-- Controls -->
+<div class="controls" id="controls">
+  <label>
+    Colours to extract
+    <div class="slider-row">
+      <input type="range" id="k-slider" min="2" max="16" value="6"
+             oninput="document.getElementById('k-val').textContent = this.value">
+      <span class="slider-val" id="k-val">6</span>
+    </div>
+  </label>
+  <button class="btn-analyse" id="btn-analyse" onclick="runAnalysis()">Analyse →</button>
+</div>
+
+<!-- Spinner -->
+<div class="spinner-wrap" id="spinner">
+  <div class="spinner"></div>
+  Extracting colours...
+</div>
+
+<!-- Results -->
+<div class="results" id="results">
+  <div class="results-header">
+    <h2>Palette</h2>
+    <button class="btn-export" onclick="exportPNG()">⬇ Export PNG</button>
+  </div>
+  <div class="palette-strip" id="palette-strip"></div>
+  <div class="colour-list" id="colour-list"></div>
+</div>
+
+<script>
+// ── COLOUR NAME DICTIONARY ────────────────────────────────────────────────
+const NAMED_COLOURS = [
+  [255,255,255,'White'],[0,0,0,'Black'],[128,128,128,'Grey'],
+  [192,192,192,'Silver'],[169,169,169,'Dark Grey'],[105,105,105,'Dim Grey'],
+  [255,0,0,'Red'],[139,0,0,'Dark Red'],[178,34,34,'Firebrick'],
+  [220,20,60,'Crimson'],[255,99,71,'Tomato'],[255,69,0,'Orange Red'],
+  [255,140,0,'Dark Orange'],[255,165,0,'Orange'],[255,215,0,'Gold'],
+  [255,255,0,'Yellow'],[154,205,50,'Yellow Green'],[0,128,0,'Green'],
+  [0,100,0,'Dark Green'],[34,139,34,'Forest Green'],[0,255,0,'Lime'],
+  [144,238,144,'Light Green'],[0,255,127,'Spring Green'],[46,139,87,'Sea Green'],
+  [0,128,128,'Teal'],[0,139,139,'Dark Cyan'],[0,255,255,'Cyan'],
+  [135,206,235,'Sky Blue'],[70,130,180,'Steel Blue'],[100,149,237,'Cornflower Blue'],
+  [0,0,255,'Blue'],[0,0,139,'Dark Blue'],[0,0,128,'Navy'],
+  [65,105,225,'Royal Blue'],[138,43,226,'Blue Violet'],[75,0,130,'Indigo'],
+  [128,0,128,'Purple'],[148,0,211,'Dark Violet'],[255,0,255,'Magenta'],
+  [255,20,147,'Deep Pink'],[255,105,180,'Hot Pink'],[255,182,193,'Light Pink'],
+  [255,192,203,'Pink'],[210,105,30,'Chocolate'],[139,69,19,'Saddle Brown'],
+  [160,82,45,'Sienna'],[205,133,63,'Peru'],[222,184,135,'Burlywood'],
+  [245,222,179,'Wheat'],[255,228,181,'Moccasin'],[255,239,213,'Papaya Whip'],
+  [250,235,215,'Antique White'],[255,248,220,'Cornsilk'],[255,250,205,'Lemon Chiffon'],
+  [240,230,140,'Khaki'],[189,183,107,'Dark Khaki'],[128,128,0,'Olive'],
+  [85,107,47,'Dark Olive Green'],[107,142,35,'Olive Drab'],[127,255,0,'Chartreuse'],
+  [173,255,47,'Green Yellow'],[0,206,209,'Dark Turquoise'],[64,224,208,'Turquoise'],
+  [72,209,204,'Medium Turquoise'],[175,238,238,'Pale Turquoise'],[176,196,222,'Light Steel Blue'],
+  [173,216,230,'Light Blue'],[176,224,230,'Powder Blue'],[224,255,255,'Light Cyan'],
+  [240,248,255,'Alice Blue'],[248,248,255,'Ghost White'],[245,245,245,'White Smoke'],
+  [220,220,220,'Gainsboro'],[211,211,211,'Light Grey'],[47,79,79,'Dark Slate Grey'],
+  [112,128,144,'Slate Grey'],[119,136,153,'Light Slate Grey'],[184,134,11,'Dark Goldenrod'],
+  [218,165,32,'Goldenrod'],[238,232,170,'Pale Goldenrod'],[250,128,114,'Salmon'],
+  [233,150,122,'Dark Salmon'],[255,160,122,'Light Salmon'],[255,127,80,'Coral'],
+  [240,128,128,'Light Coral'],[205,92,92,'Indian Red'],[188,143,143,'Rosy Brown'],
+  [199,21,133,'Medium Violet Red'],[219,112,147,'Pale Violet Red'],
+  [216,191,216,'Thistle'],[221,160,221,'Plum'],[238,130,238,'Violet'],
+  [218,112,214,'Orchid'],[186,85,211,'Medium Orchid'],[147,112,219,'Medium Purple'],
+  [123,104,238,'Medium Slate Blue'],[106,90,205,'Slate Blue'],[72,61,139,'Dark Slate Blue'],
+  [230,230,250,'Lavender'],[255,240,245,'Lavender Blush'],[255,228,225,'Misty Rose'],
+  [250,240,230,'Linen'],[253,245,230,'Old Lace'],[255,245,238,'Seashell'],
+  [255,228,196,'Bisque'],[255,218,185,'Peach Puff'],[255,222,173,'Navajo White'],
+  [200,64,26,'Rust'],[139,0,139,'Dark Magenta'],[0,191,255,'Deep Sky Blue'],
+  [30,144,255,'Dodger Blue'],[0,90,160,'Cobalt Blue'],[60,20,220,'Cerulean Blue'],
+  [1,121,111,'Viridian'],[80,200,120,'Emerald'],[0,168,107,'Jade'],
+  [227,11,93,'Carmine'],[150,0,24,'Burgundy'],[139,90,43,'Brown'],
+  [205,170,125,'Tan'],[210,180,140,'Taupe'],[112,66,20,'Sepia'],
+];
+
+function closestName(r, g, b) {
+  let best = '', bestD = Infinity;
+  for (const [nr, ng, nb, name] of NAMED_COLOURS) {
+    const d = (r-nr)**2 + (g-ng)**2 + (b-nb)**2;
+    if (d < bestD) { bestD = d; best = name; }
+  }
+  return best;
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+}
+
+// ── FILE LOADING ──────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+let currentFile = null;
+let lastPalette = [];
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const cvs = document.getElementById('src');
+      const max = 600;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      cvs.width = Math.floor(img.width * scale);
+      cvs.height = Math.floor(img.height * scale);
+      cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
+      document.getElementById('controls').classList.add('visible');
+      dropZone.querySelector('p').innerHTML =
+        `<strong>${file.name}</strong><br><span style="color:var(--muted);font-size:0.75rem">Image loaded — adjust colours and click Analyse</span>`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── ANALYSIS ─────────────────────────────────────────────────────────────
+function runAnalysis() {
+  const btn = document.getElementById('btn-analyse');
+  btn.disabled = true;
+  document.getElementById('spinner').classList.add('active');
+  document.getElementById('results').classList.remove('visible');
+
+  setTimeout(() => {
+    try { analyse(); } finally {
+      btn.disabled = false;
+      document.getElementById('spinner').classList.remove('active');
+    }
+  }, 60);
+}
+
+function analyse() {
+  const cvs = document.getElementById('src');
+  const ctx = cvs.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, cvs.width, cvs.height);
+  const k = parseInt(document.getElementById('k-slider').value);
+
+  const pixels = [];
+  const d = imgData.data;
+  // Sample every 4th pixel for speed
+  for (let i = 0; i < d.length; i += 16) {
+    if (d[i+3] < 128) continue;
+    pixels.push([d[i], d[i+1], d[i+2]]);
+  }
+
+  if (pixels.length === 0) return;
+
+  const palette = kMeans(pixels, k, 20);
+  palette.sort((a, b) => b.count - a.count);
+
+  const total = palette.reduce((s, c) => s + c.count, 0);
+  lastPalette = palette.map(c => ({ ...c, pct: (c.count / total * 100) }));
+
+  renderResults(lastPalette);
+}
+
+function renderResults(palette) {
+  // Strip
+  const strip = document.getElementById('palette-strip');
+  strip.innerHTML = '';
+  palette.forEach((c, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'strip-seg';
+    seg.style.flex = c.pct;
+    seg.style.background = rgbToHex(c.r, c.g, c.b);
+    seg.title = `${closestName(c.r, c.g, c.b)} — ${c.pct.toFixed(1)}%`;
+    strip.appendChild(seg);
+  });
+
+  // List
+  const list = document.getElementById('colour-list');
+  list.innerHTML = '';
+  palette.forEach((c, i) => {
+    const hex = rgbToHex(c.r, c.g, c.b);
+    const name = closestName(c.r, c.g, c.b);
+    const row = document.createElement('div');
+    row.className = 'colour-row';
+    row.style.animationDelay = `${i * 0.05}s`;
+    row.innerHTML = `
+      <div class="swatch" style="background:${hex}"></div>
+      <div class="colour-info">
+        <div class="colour-codes">${hex.toUpperCase()} &nbsp;·&nbsp; rgb(${c.r}, ${c.g}, ${c.b})</div>
+        <div class="colour-name">${name}</div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" style="width:${c.pct}%;background:${hex}"></div></div>
+        <div class="pct-label">${c.pct.toFixed(1)}%</div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  document.getElementById('results').classList.add('visible');
+}
+
+// ── EXPORT PNG ────────────────────────────────────────────────────────────
+function exportPNG() {
+  if (!lastPalette.length) return;
+  const W = 700;
+  const rowH = 60;
+  const stripH = 60;
+  const padX = 28, padY = 24;
+  const H = padY * 2 + stripH + 12 + rowH * lastPalette.length + 40;
+
+  const ec = document.createElement('canvas');
+  ec.width = W; ec.height = H;
+  const ctx = ec.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title
+  ctx.fillStyle = '#1a1611';
+  ctx.font = 'bold 18px serif';
+  ctx.fillText('Colour Palette', padX, padY + 14);
+
+  // Strip
+  let sx = padX;
+  const sw = W - padX * 2;
+  const sy = padY + 28;
+  lastPalette.forEach(c => {
+    const segW = (c.pct / 100) * sw;
+    ctx.fillStyle = rgbToHex(c.r, c.g, c.b);
+    ctx.fillRect(sx, sy, segW, stripH);
+    sx += segW;
+  });
+  ctx.strokeStyle = '#d4cbbf';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(padX, sy, sw, stripH);
+
+  // Rows
+  let ry = sy + stripH + 20;
+  ctx.font = '13px monospace';
+  lastPalette.forEach((c, i) => {
+    const hex = rgbToHex(c.r, c.g, c.b);
+    const name = closestName(c.r, c.g, c.b);
+
+    // Swatch
+    ctx.fillStyle = hex;
+    ctx.fillRect(padX, ry + 6, 32, 32);
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padX, ry + 6, 32, 32);
+
+    // Text
+    ctx.fillStyle = '#1a1611';
+    ctx.font = '500 12px monospace';
+    ctx.fillText(`${hex.toUpperCase()}   rgb(${c.r}, ${c.g}, ${c.b})`, padX + 44, ry + 18);
+    ctx.fillStyle = '#8a8070';
+    ctx.font = 'italic 12px serif';
+    ctx.fillText(name, padX + 44, ry + 36);
+
+    // Bar
+    const barW = 120;
+    const barX = W - padX - barW;
+    ctx.fillStyle = '#ede7d9';
+    ctx.fillRect(barX, ry + 18, barW, 6);
+    ctx.fillStyle = hex;
+    ctx.fillRect(barX, ry + 18, barW * (c.pct / 100), 6);
+
+    ctx.fillStyle = '#c8401a';
+    ctx.font = '500 12px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${c.pct.toFixed(1)}%`, W - padX, ry + 14);
+    ctx.textAlign = 'left';
+
+    // Divider
+    ctx.strokeStyle = '#d4cbbf';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(padX, ry + rowH - 1);
+    ctx.lineTo(W - padX, ry + rowH - 1);
+    ctx.stroke();
+
+    ry += rowH;
+  });
+
+  const link = document.createElement('a');
+  link.download = 'colour-palette.png';
+  link.href = ec.toDataURL('image/png');
+  link.click();
+}
+
+// ── K-MEANS ───────────────────────────────────────────────────────────────
+function kMeans(pixels, k, iters) {
+  const step = Math.floor(pixels.length / k);
+  let centroids = Array.from({ length: k }, (_, i) => [...pixels[i * step] || pixels[0]]);
+  const assignments = new Int32Array(pixels.length);
+
+  for (let iter = 0; iter < iters; iter++) {
+    for (let i = 0; i < pixels.length; i++) {
+      let best = 0, bestD = Infinity;
+      for (let j = 0; j < k; j++) {
+        const d = dist2(pixels[i], centroids[j]);
+        if (d < bestD) { bestD = d; best = j; }
+      }
+      assignments[i] = best;
+    }
+    const sums = Array.from({ length: k }, () => [0, 0, 0, 0]);
+    for (let i = 0; i < pixels.length; i++) {
+      const j = assignments[i];
+      sums[j][0] += pixels[i][0]; sums[j][1] += pixels[i][1];
+      sums[j][2] += pixels[i][2]; sums[j][3]++;
+    }
+    for (let j = 0; j < k; j++) {
+      if (sums[j][3] > 0)
+        centroids[j] = [sums[j][0] / sums[j][3], sums[j][1] / sums[j][3], sums[j][2] / sums[j][3]];
+    }
+  }
+
+  const counts = new Int32Array(k);
+  for (let i = 0; i < pixels.length; i++) counts[assignments[i]]++;
+
+  return centroids.map((c, j) => ({
+    r: Math.round(c[0]), g: Math.round(c[1]), b: Math.round(c[2]), count: counts[j]
+  }));
+}
+
+function dist2(a, b) { return (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2; }
+</script>
+</body>
+</html>
