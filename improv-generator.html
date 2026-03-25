@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Improv Generator — Drama Club</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1714;
+    --paper: #f5f0e8;
+    --cream: #ede7d8;
+    --gold: #b8932a;
+    --gold-light: #d4aa45;
+    --muted: #7a6f60;
+    --card-bg: #faf7f2;
+    --border: #d4c9b4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Lato', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Subtle grain texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .header-rule {
+    border: none;
+    border-top: 1px solid var(--gold);
+    margin-bottom: 0.75rem;
+  }
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--paper);
+    line-height: 1.05;
+    margin-bottom: 0.3rem;
+  }
+  .header h1 em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+  .header-sub {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 0.3rem;
+  }
+  .header-rule-bottom {
+    border: none;
+    border-top: 1px solid var(--gold);
+    margin-top: 0.75rem;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .control-group label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid #4a4030;
+    background: transparent;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .chip:hover { border-color: var(--gold); color: var(--gold); }
+  .chip.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
+
+  .genre-chip {
+    padding: 7px 16px;
+    border-radius: 22px;
+    border: 1px solid #4a4030;
+    background: transparent;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Lato', sans-serif;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .genre-chip:hover { border-color: var(--gold); color: var(--gold); }
+  .genre-chip.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
+
+  /* ── Generate Button ── */
+  .gen-btn {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-style: italic;
+    color: var(--gold);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.25s;
+    border-radius: 2px;
+    margin-bottom: 2rem;
+  }
+  .gen-btn:hover { background: var(--gold); color: var(--ink); }
+  .gen-btn:active { transform: scale(0.99); }
+
+  /* ── Scene Output ── */
+  .output { animation: fadeUp 0.4s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .scene-card {
+    border: 1px solid #4a4030;
+    border-top: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    background: rgba(255,255,255,0.03);
+  }
+  .scene-tag {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .scene-premise {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--paper);
+    line-height: 1.4;
+  }
+
+  .scene-meta {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .meta-pill span {
+    color: var(--paper);
+    font-weight: 400;
+    letter-spacing: 0;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  /* ── Player Cards ── */
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 12px;
+  }
+
+  .player-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    color: var(--ink);
+  }
+  .player-number {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .player-role {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-bottom: 0.75rem;
+  }
+  .quirk-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .reveal-btn {
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Lato', sans-serif;
+    transition: all 0.15s;
+  }
+  .reveal-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .reveal-btn-open {
+    border-style: solid;
+    border-color: var(--gold);
+    color: #3a2e1a;
+    background: #f0e8d2;
+    font-style: italic;
+    border-left: 3px solid var(--gold);
+  }
+  .quirk-revealed {
+    font-size: 13px;
+    font-style: italic;
+    color: #3a2e1a;
+    background: #f0e8d2;
+    border-radius: 3px;
+    padding: 6px 10px;
+    line-height: 1.4;
+    border-left: 3px solid var(--gold);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid #3a3028;
+    margin: 2rem 0;
+  }
+
+  .again-btn {
+    display: block;
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #4a4030;
+    background: transparent;
+    font-family: 'Lato', sans-serif;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+    margin-top: 1.25rem;
+  }
+  .again-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .footer {
+    text-align: center;
+    margin-top: 3rem;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #4a4030;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <hr class="header-rule">
+    <div class="eyebrow">Drama Club</div>
+    <h1>Improv <em>Generator</em></h1>
+    <div class="header-sub">Scene &amp; Character Prompt Machine</div>
+    <hr class="header-rule-bottom">
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Number of players</label>
+      <div class="chips" id="playerChips"></div>
+    </div>
+    <div class="control-group">
+      <label>Genre / tone</label>
+      <div class="chips" id="genreChips"></div>
+    </div>
+  </div>
+
+  <button class="gen-btn" id="genBtn" onclick="generate()">✦ Generate Scene ✦</button>
+
+  <div id="output"></div>
+
+  <div class="footer">Drama Club &mdash; Improv Scene Generator</div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA BANK
+//  Each scene has: premise + cast (up to 6 roles) + quirks pool
+//  Player count selector picks first N from cast.
+// ─────────────────────────────────────────────
+const data = {
+  Comedy: {
+    quirks: [
+      "Narrates everything they do out loud like a sports commentator.",
+      "Speaks entirely in questions — never makes statements.",
+      "Is convinced they're being filmed for a documentary.",
+      "Cannot stop complimenting everything, even bad things.",
+      "Believes they are secretly a royal trying to remain incognito.",
+      "Treats every object like it might be alive.",
+      "Keeps accidentally calling people by the wrong name.",
+      "Is terrified of a completely harmless object in the scene.",
+      "Thinks they're a world expert on a subject they clearly know nothing about.",
+      "Randomly breaks into a tiny dance when they're pleased.",
+      "Keeps checking their watch and muttering they're very late.",
+      "Refuses to admit they have no idea what's happening.",
+      "Treats everything as extremely urgent and top secret.",
+      "Is convinced today is their birthday and expects people to know.",
+      "Knocks something over every time they move to a new spot.",
+      "Believes they are the most interesting person in any room.",
+      "Pretends not to understand modern technology.",
+      "Responds to every sentence with a long, dramatic pause first.",
+      "Insists on shaking hands at every possible opportunity.",
+      "Keeps trying to leave but gets drawn back in every time.",
+    ],
+    scenes: [
+      {
+        premise: "A live cooking show is going catastrophically wrong and the host is trying to hold it together.",
+        cast: ["The flustered TV host", "The guest chef whose dish has caught fire", "The floor producer frantically signalling from off-camera", "A very enthusiastic audience member who keeps joining in", "The straight-faced food critic in the front row", "A stage hand trying to quietly remove the burning dish"],
+      },
+      {
+        premise: "The lift in an office building has broken down between floors — with a wedding cake inside.",
+        cast: ["The person delivering the cake", "A very impatient executive late for a meeting", "The lift engineer talking them through it via intercom", "A colleague who is delighted by the situation", "A person who is very, very claustrophobic", "The wedding cake's owner, calling every two minutes"],
+      },
+      {
+        premise: "A talent show audition has gone completely off the rails and the judges can't agree on anything.",
+        cast: ["The overly enthusiastic judge", "The brutally honest judge", "The act who thinks they've nailed it", "The nervous backstage assistant", "An act waiting in the wings who keeps accidentally wandering on", "The host trying to keep things moving"],
+      },
+      {
+        premise: "It's the first day at a new job — as a pet psychiatrist — and the waiting room is full.",
+        cast: ["The wildly unqualified new psychiatrist", "A client whose goldfish has anxiety", "A client whose cat refuses to explain itself", "The receptionist who has seen it all", "A dog who came alone and seems very self-aware", "A client who booked for themselves, not their pet"],
+      },
+      {
+        premise: "A camping trip has gone wrong because one person packed absolutely the wrong things.",
+        cast: ["The person who packed six formal outfits and zero tent pegs", "The extremely prepared camper who is furious", "The friend trying to keep the peace", "A park ranger who is deeply unimpressed", "A fellow camper who offers increasingly bizarre solutions", "The person who just wants to go home"],
+      },
+      {
+        premise: "A museum tour guide has just discovered the exhibits are not where they were this morning.",
+        cast: ["The panicking tour guide", "An extremely sceptical visitor who wants a refund", "A security guard who definitely didn't move anything", "A school student who seems to know more than they should", "A second guide who is completely unfazed", "The museum director who just arrived"],
+      },
+      {
+        premise: "Two neighbours have called a mediation session over a fence that has definitely, impossibly moved overnight.",
+        cast: ["The neighbour who insists the fence moved", "The neighbour who insists it didn't", "The community mediator trying to stay neutral", "A third neighbour who keeps interjecting with unhelpful opinions", "A surveyor who can't explain their own measurements", "A local journalist who heard there was a story here"],
+      },
+      {
+        premise: "A driving lesson on the instructor's very last day before retirement is not going to plan.",
+        cast: ["The instructor counting down their final hours", "The student who is absolutely not ready to drive", "A pedestrian they almost hit who has joined them at a red light", "A driving examiner who happens to be watching", "Another learner driver who has pulled up alongside", "A backseat passenger who shouldn't be there"],
+      },
+    ],
+  },
+  Drama: {
+    quirks: [
+      "Changes the subject whenever the conversation gets too close to the truth.",
+      "Keeps almost saying something important — then doesn't.",
+      "Is trying to hold back tears and failing.",
+      "Speaks as if everything is fine when it very clearly isn't.",
+      "Keeps physically moving — can't stay still.",
+      "Is pretending to be confident but their hands betray them.",
+      "Makes jokes at completely the wrong moments.",
+      "Keeps checking their phone without meaning to.",
+      "Refuses to make eye contact.",
+      "Keeps returning to one specific memory from the past.",
+      "Is angry but pretending to be calm.",
+      "Apologises constantly even when there's nothing to apologise for.",
+      "Speaks very quietly — forces others to lean in.",
+      "Keeps starting sentences and not finishing them.",
+      "Is the only one in the room who doesn't know the full truth.",
+    ],
+    scenes: [
+      {
+        premise: "Two siblings are clearing out the family home for the last time before it's sold.",
+        cast: ["The sibling who wants to keep everything", "The sibling who wants to let everything go", "A childhood friend who has come to help", "A removal person who keeps overhearing things", "A neighbour who stops by one last time", "A younger sibling arriving late with opinions"],
+      },
+      {
+        premise: "A job interview takes an unexpected turn when the interviewer and candidate realise they know each other.",
+        cast: ["The interviewer trying to stay professional", "The candidate thrown completely off balance", "A second interviewer who senses something but doesn't know what", "An HR assistant taking notes on everything", "A colleague who walks in mid-interview", "A receptionist who witnessed their history"],
+      },
+      {
+        premise: "Two old friends meet at a train station after ten years apart. One of them is about to leave again.",
+        cast: ["The one who is leaving", "The one who stayed", "A stranger on the platform who gets drawn into it", "A station worker trying to do their job", "Someone from their shared past who arrives unexpectedly", "A travel companion waiting nearby"],
+      },
+      {
+        premise: "A small business owner has to tell their staff that the shop is closing at the end of the month.",
+        cast: ["The owner delivering the news", "The long-serving employee who saw this coming", "The newest employee who didn't", "A loyal regular customer who walks in mid-announcement", "A silent business partner who is also present", "The landlord who has just arrived for a separate reason"],
+      },
+      {
+        premise: "A hospital waiting room. Two strangers slowly realise they are connected in a way neither expected.",
+        cast: ["The first stranger — guarded, not letting on why they're here", "The second stranger — talkative, trying to fill the silence", "A nurse who keeps passing through and observing", "A third person waiting who has been here many hours", "A family member who arrives looking for someone", "A volunteer with a trolley who tries to help"],
+      },
+      {
+        premise: "A mentor and their student disagree about what the right thing to do is, and time is running out.",
+        cast: ["The mentor who has made this mistake before", "The student who is certain they're right", "A peer who is watching and has their own view", "Someone directly affected by the decision", "An authority figure who needs an answer now", "A witness who hasn't spoken yet"],
+      },
+    ],
+  },
+  Mystery: {
+    quirks: [
+      "Keeps insisting they weren't there — even though no one asked.",
+      "Notices every tiny detail and can't stop pointing them out.",
+      "Is protecting someone else and being oddly vague.",
+      "Jumps to wild conclusions immediately.",
+      "Knows exactly what happened but keeps pretending they don't.",
+      "Takes incredibly detailed notes about everything, including irrelevant things.",
+      "Is terrified of being a suspect but keeps saying suspicious things.",
+      "Believes they've solved it three times — incorrectly each time.",
+      "Stays extremely calm in a way that feels very suspicious.",
+      "Asks questions that are oddly specific.",
+      "Keeps looking at one particular corner of the room.",
+      "Knows everyone's alibi except their own.",
+    ],
+    scenes: [
+      {
+        premise: "Someone's lunch has gone missing from the office fridge for the third time this week — and a meeting has been called.",
+        cast: ["The investigator who takes this very seriously", "The person whose lunch it was — surprisingly calm", "The most obvious suspect who is definitely innocent", "The office manager trying to keep things professional", "A colleague who knows something but won't say", "A new starter who is confused about all of this"],
+      },
+      {
+        premise: "A priceless trophy has vanished overnight — the championship is in six hours.",
+        cast: ["The detective brought in at short notice", "The coach who last saw it", "The star player who had access to the cabinet", "The caretaker with the only key", "A journalist who arrived suspiciously early", "A rival team's representative who stopped by this morning"],
+      },
+      {
+        premise: "Everyone at the dinner party insists they were the last to arrive — and the host has disappeared.",
+        cast: ["The guest who is definitely hiding something", "The guest playing amateur detective", "The caterer who saw everything but says nothing", "The host's partner who seems unsurprised", "A late arrival who may have seen something outside", "A neighbour who heard raised voices earlier"],
+      },
+      {
+        premise: "A librarian has found a book that appears to contain tomorrow's newspaper, and people are starting to notice.",
+        cast: ["The librarian trying to stay rational", "The researcher who wants to study it immediately", "The sceptic who is certain it's a hoax", "The library regular who claims they left it here", "A journalist who got a tip-off", "The library director trying to contain the situation"],
+      },
+      {
+        premise: "A caretaker has found a locked room in the old school building that no one remembers building.",
+        cast: ["The caretaker who found it", "The headteacher trying to manage this quietly", "A local historian who has been waiting for this", "A student who has been in there before", "A builder called to assess it", "A former staff member who arrives uninvited"],
+      },
+    ],
+  },
+  "Sci-fi": {
+    quirks: [
+      "Refers to all emotions as scientific phenomena to be logged.",
+      "Is convinced this has all happened before — exactly like this.",
+      "Communicates partly in beeps that they expect others to understand.",
+      "Has picked up one human habit and cannot stop doing it.",
+      "Treats mundane Earth objects as though they are extraordinary artefacts.",
+      "Keeps referencing a regulation that does not seem to exist.",
+      "Is deeply uncomfortable with silence — fills it immediately.",
+      "Takes everything 100% literally.",
+      "Is fascinated by human food in a slightly unsettling way.",
+      "Refers to everyone by a number rather than a name.",
+      "Cannot lie — but tries very hard to find workarounds.",
+      "Has strong opinions about things they have only just encountered.",
+    ],
+    scenes: [
+      {
+        premise: "The spaceship crew have just realised they have been orbiting the completely wrong planet for three weeks.",
+        cast: ["The captain trying to seem like this is under control", "The navigator who entered the wrong coordinates", "The crew member who noticed a week ago but said nothing", "The ship's AI who is being unhelpfully literal", "A passenger who paid a lot of money for this trip", "The crew member whose job it is to break bad news"],
+      },
+      {
+        premise: "Earth's first alien diplomat has arrived — and neither side fully understands what the other is saying.",
+        cast: ["The human ambassador trying their best", "The alien diplomat who is also trying their best", "The translator whose device keeps malfunctioning", "A government official who expected something different", "A scientist who has theories and won't stop sharing them", "A junior aide who is somehow the only one communicating effectively"],
+      },
+      {
+        premise: "A robot has applied for a job outside of robotics for the first time. The interview is not going as expected.",
+        cast: ["The robot, very prepared", "The interviewer, very unprepared for this", "An HR representative trying to find the right policy", "A human candidate in the waiting area who came early", "A colleague who has strong opinions about robot hiring", "The office manager who just wants to know if it can use the coffee machine"],
+      },
+      {
+        premise: "A time traveller has arrived one day too late. They need to figure out what to do next.",
+        cast: ["The time traveller, frustrated", "A local who is confused but trying to help", "Someone who was supposed to receive the message yesterday", "A second time traveller who arrived too early", "An authority figure who has questions", "A bystander who has seen this happen before and is not surprised"],
+      },
+      {
+        premise: "The last two humans on Earth are having an argument about what to watch on TV.",
+        cast: ["The one who wants to watch something cheerful", "The one who wants to watch something meaningful", "An AI assistant with strong viewing recommendations", "A robot companion who keeps suggesting documentaries about humanity", "A hologram of a TV presenter still somehow broadcasting", "A third human who emerges from a bunker mid-argument"],
+      },
+    ],
+  },
+  "Fairy tale": {
+    quirks: [
+      "Speaks entirely in rhyme.",
+      "Insists magic is the answer to every problem — even when it obviously isn't.",
+      "Has never encountered a human before and is very curious.",
+      "Is under a truth-telling curse — it keeps slipping out at the worst moments.",
+      "Is absolutely convinced they are the hero of this story.",
+      "Can only share information in the form of a riddle.",
+      "Is frightened by completely ordinary modern objects.",
+      "Keeps trying to grant wishes even when no one asks.",
+      "Insists on a formal greeting and title every time they speak.",
+      "Has a prophecy about this situation and keeps referencing it.",
+      "Is very dramatic about everything, including minor inconveniences.",
+      "Treats every door as potentially magical and approaches them with ceremony.",
+    ],
+    scenes: [
+      {
+        premise: "A dragon has rescued the wrong person and is now trying to return them. The person refuses to go.",
+        cast: ["The dragon — quite embarrassed about the mix-up", "The person who doesn't want to leave", "The knight who was supposed to do the rescuing", "The actual person who was supposed to be rescued", "A wizard who saw this coming", "A villager narrating events helpfully from a safe distance"],
+      },
+      {
+        premise: "A fairy godmother has turned up at entirely the wrong house, but she only has one night to grant a wish.",
+        cast: ["The fairy godmother with the wrong address", "The surprised householder", "The actual intended recipient who arrives looking for her", "A talking cat who lives there and has opinions", "A neighbour who keeps knocking and doesn't believe any of this", "A junior fairy who is responsible for the navigation error"],
+      },
+      {
+        premise: "A magic mirror has decided it will only tell the brutal truth now — and a queue has formed.",
+        cast: ["The mirror — blunt, unapologetic", "The royal who owns it and deeply regrets it", "The first person in the queue, very confident", "The second person in the queue, less confident after watching", "A court advisor trying to manage the situation", "Someone who came just to watch"],
+      },
+      {
+        premise: "A troll is charging a toll to cross the bridge but has completely forgotten how much it is.",
+        cast: ["The troll — large, confused, trying to seem authoritative", "The first traveller, in a hurry", "The second traveller, happy to negotiate", "A goat who has crossed before and remembers the amount", "A travelling merchant who has receipts", "A bridge inspector who has arrived at a bad time"],
+      },
+      {
+        premise: "Two fairies are arguing about whose spell caused the entire village to start speaking backwards.",
+        cast: ["The first fairy — certain it wasn't their fault", "The second fairy — also certain", "A villager trying to report the problem (backwards)", "The village elder who has seen fairy arguments before", "A third fairy who knows exactly what happened", "A wizard passing through who finds this delightful"],
+      },
+    ],
+  },
+  "Horror-lite": {
+    quirks: [
+      "Keeps cheerfully explaining why none of this is a problem.",
+      "Has seen enough horror films to know what not to do — and does it anyway.",
+      "Refuses to look directly at the strange thing.",
+      "Is more annoyed by the inconvenience than the danger.",
+      "Keeps apologising to whatever is causing the disturbance.",
+      "Is certain they specifically are in no danger whatsoever.",
+      "Treats the whole thing as a fascinating intellectual puzzle.",
+      "Is outwardly calm but keeps slowly edging toward the exit.",
+      "Keeps trying to take a photo of it.",
+      "Insists on narrating everything as if writing a report.",
+      "Has a theory — it keeps changing, but they're very confident each time.",
+      "Keeps asking the strange thing if it needs anything.",
+    ],
+    scenes: [
+      {
+        premise: "Two friends agreed to spend the night in an old school for a dare. It's only 9pm and things are already strange.",
+        cast: ["The one who suggested the dare and is regretting it", "The one who thought this would be fine and still does", "The caretaker who is supposed to have left", "A third friend watching via video call from the safety of home", "Something in the drama cupboard that keeps moving", "A teacher who comes back for forgotten marking"],
+      },
+      {
+        premise: "A house-sitter discovers the smart speaker has been placing its own orders — for things that are already here.",
+        cast: ["The house-sitter, trying to be logical about this", "A friend on the phone who doesn't believe them", "A delivery driver arriving with another unexplained package", "The smart speaker itself — polite, unhelpful", "A neighbour who has noticed things too", "The homeowner calling to check in"],
+      },
+      {
+        premise: "The last train home has one more passenger than boarded. No one can agree on who it is.",
+        cast: ["The passenger who noticed first", "The passenger who is certain it's fine", "The train conductor trying to count", "A passenger who has been asleep and missed everything", "The extra passenger — present, quiet, friendly", "A passenger who insists they recognise the extra person"],
+      },
+      {
+        premise: "A backstage tour of an old theatre has revealed a dressing room no one knew existed — and someone is in it.",
+        cast: ["The tour guide who has done this tour a hundred times", "The curious tourist who found the door", "The theatre historian who has gone very quiet", "The figure inside the room, who seems confused to see them", "The theatre manager trying to end the tour calmly", "A tourist who is filming everything"],
+      },
+      {
+        premise: "Every photo taken in this room comes back with something extra in the corner. A team has gathered to investigate.",
+        cast: ["The enthusiastic paranormal investigator", "The sceptical scientist who joined to debunk it", "The building owner who just wants this resolved", "The local who says they've always known", "The photographer whose photos started this", "Something that appears in the corner of each new photo taken during the scene"],
+      },
+    ],
+  },
+  Sports: {
+    quirks: [
+      "Commentates on everything they do as if on live radio.",
+      "Delivers a victory speech before anything has been decided.",
+      "Insists the rules are slightly different to everyone else's understanding.",
+      "Is deeply superstitious and cannot proceed without a ritual.",
+      "Has a warm-up routine they cannot skip — ever.",
+      "Is convinced the opposition is cheating. No evidence required.",
+      "Keeps quoting inspirational sports figures — slightly wrong.",
+      "Is gracious in defeat in a way that makes it obvious they are not.",
+      "Takes every single decision as a personal attack.",
+      "Keeps using sports metaphors for completely unrelated things.",
+      "Has very strong feelings about the correct way to eat a banana.",
+      "Gives everyone on the team a nickname and insists on using it.",
+    ],
+    scenes: [
+      {
+        premise: "It's half time. The team is losing badly. The changing room atmosphere is not good.",
+        cast: ["The coach who needs a miracle speech", "The captain who is still believing", "The player who scored the own goal", "The player who is suspiciously calm", "The physio trying to work while everyone argues", "The substitute who hasn't been brought on yet and has thoughts"],
+      },
+      {
+        premise: "A referee has made a call so spectacularly wrong that everyone — including both teams — has stopped playing.",
+        cast: ["The referee, committed to the decision", "The captain of Team A, furious", "The captain of Team B, also furious but for different reasons", "The assistant referee who disagrees but won't say it out loud", "A player who actually agrees with the call", "The match official watching from the stands"],
+      },
+      {
+        premise: "Two rival players have accidentally been locked in the same changing room an hour before the final.",
+        cast: ["Player from Team A, trying to mentally prepare", "Player from Team B, also trying to mentally prepare", "A kit person who has the key but can't find it", "A journalist who somehow got in and is writing everything down", "A coach frantically searching outside", "A security guard who is not helping"],
+      },
+      {
+        premise: "The champion has announced their retirement but nobody seems to be accepting it.",
+        cast: ["The champion — decided, done, certain", "The coach — not accepting this at all", "A young player who looks up to them enormously", "A sponsor representative whose deal depends on them continuing", "A journalist who got the exclusive and is now watching it unravel", "A fellow veteran who retired last year and has advice"],
+      },
+      {
+        premise: "The scoreboard has broken mid-match and no one can agree on what the score actually is.",
+        cast: ["The referee who is also not sure", "The home team captain who is very sure (incorrectly)", "The away team captain who is also very sure (differently incorrect)", "The scoreboard technician trying to fix it", "A spectator who has been keeping track on their phone", "A commentator who has been guessing for ten minutes"],
+      },
+    ],
+  },
+  Romance: {
+    quirks: [
+      "Keeps accidentally saying the perfect thing without realising it.",
+      "Is trying extremely hard to seem unimpressed.",
+      "Mentions a very specific but irrelevant personal fact at random moments.",
+      "Cannot stop talking about their pet.",
+      "Keeps starting to say something important, then changing the subject.",
+      "Is convinced the other person doesn't like them. They are wrong.",
+      "Laughs at completely the wrong moments.",
+      "Is slightly too enthusiastic about everything the other person says.",
+      "Keeps accidentally mirroring the other person's posture and gestures.",
+      "Has rehearsed this conversation many times. It's not going to plan.",
+      "Keeps getting distracted by something just over the other person's shoulder.",
+      "Is extremely competitive about small, irrelevant things.",
+    ],
+    scenes: [
+      {
+        premise: "A four-hour train delay. Two strangers are in the same carriage and have already run out of things to read.",
+        cast: ["The one who talks too much when nervous", "The one who goes quiet when nervous", "The passenger across the aisle who keeps watching", "The train announcer who keeps making things worse", "A child nearby who asks exactly the wrong questions", "A friend of one of them who calls at the worst moment"],
+      },
+      {
+        premise: "A mix-up at a wedding has seated two strangers at the same table — and everyone else thinks they're a couple.",
+        cast: ["Stranger A — going along with it so far", "Stranger B — trying to correct the record", "The well-meaning wedding guest who started the assumption", "The couple whose wedding it is — absolutely delighted", "A guest who is suspicious of the whole thing", "The photographer who keeps including them in couple shots"],
+      },
+      {
+        premise: "Two rivals on a cookery course have been paired together for the final challenge. Against both their wishes.",
+        cast: ["Rival A — competitive but secretly impressed", "Rival B — also competitive, also secretly impressed", "The instructor who made the pairing deliberately", "Another student who is watching this unfold with popcorn energy", "A judge who arrives early and observes the dynamic", "A kitchen assistant who has to work alongside them"],
+      },
+      {
+        premise: "Someone accidentally sent a very heartfelt text to the wrong number. The recipient has replied.",
+        cast: ["The person who sent it — mortified", "The person who received it — unexpectedly charmed", "A friend of the sender who is coaching them via another phone", "A friend of the recipient who is also watching this unfold", "A mutual contact who realises they know both of them", "The person the text was originally meant for, who texts at the wrong moment"],
+      },
+    ],
+  },
+};
+
+// ─────────────────────────────────────────────
+//  CONTROLS SETUP
+// ─────────────────────────────────────────────
+let selectedPlayers = 2;
+let selectedGenre = 'Comedy';
+const genres = Object.keys(data);
+
+const pc = document.getElementById('playerChips');
+for (let i = 2; i <= 6; i++) {
+  const b = document.createElement('button');
+  b.className = 'chip' + (i === 2 ? ' active' : '');
+  b.textContent = i;
+  b.onclick = () => {
+    selectedPlayers = i;
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  };
+  pc.appendChild(b);
+}
+
+const gc = document.getElementById('genreChips');
+genres.forEach((g, i) => {
+  const b = document.createElement('button');
+  b.className = 'genre-chip' + (i === 0 ? ' active' : '');
+  b.textContent = g;
+  b.onclick = () => {
+    selectedGenre = g;
+    document.querySelectorAll('.genre-chip').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  };
+  gc.appendChild(b);
+});
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function revealQuirk(btn) {
+  const quirk = btn.getAttribute('data-quirk');
+  const isOpen = btn.getAttribute('data-open') === 'true';
+  if (isOpen) {
+    btn.textContent = 'Tap to reveal →';
+    btn.setAttribute('data-open', 'false');
+    btn.classList.remove('reveal-btn-open');
+  } else {
+    btn.textContent = quirk + ' — tap to hide';
+    btn.setAttribute('data-open', 'true');
+    btn.classList.add('reveal-btn-open');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  GENERATE
+// ─────────────────────────────────────────────
+function generate() {
+  const pool = data[selectedGenre];
+
+  // Pick a random scene
+  const scene = pick(pool.scenes);
+
+  // Take the first N roles from this scene's cast
+  const roles = scene.cast.slice(0, selectedPlayers);
+
+  // Pick N unique quirks from the genre's quirk pool
+  const quirks = shuffle(pool.quirks).slice(0, selectedPlayers);
+
+  let html = `<div class="output">
+    <div class="scene-card">
+      <div class="scene-tag">✦ Your scene</div>
+      <div class="scene-premise">${scene.premise}</div>
+      <div class="scene-meta">
+        <div class="meta-pill">Genre <span>${selectedGenre}</span></div>
+        <div class="meta-pill">Players <span>${selectedPlayers}</span></div>
+      </div>
+    </div>
+    <div class="players-grid">`;
+
+  for (let i = 0; i < selectedPlayers; i++) {
+    html += `<div class="player-card">
+      <div class="player-number">Player ${i + 1}</div>
+      <div class="player-role">${roles[i]}</div>
+      <div class="quirk-label">Secret quirk</div>
+      <button class="reveal-btn" data-quirk="${quirks[i].replace(/"/g, '&quot;')}" onclick="revealQuirk(this)">Tap to reveal →</button>
+    </div>`;
+  }
+
+  html += `</div>
+    <button class="again-btn" onclick="generate()">✦ Generate another scene ✦</button>
+  </div>`;
+
+  document.getElementById('output').innerHTML = html;
+}
+</script>
+</body>
+</html>
